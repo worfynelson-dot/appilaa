@@ -1,8 +1,7 @@
-import { put, list } from "@vercel/blob";
+const { put, list } = require("@vercel/blob");
 
 const DB_FILE = "users-db.json";
 
-// Helper: ambil semua data dari blob
 async function getData() {
   try {
     const { blobs } = await list();
@@ -16,16 +15,15 @@ async function getData() {
   }
 }
 
-// Helper: simpan data ke blob
 async function saveData(data) {
   await put(DB_FILE, JSON.stringify(data, null, 2), {
     access: "public",
     contentType: "application/json",
+    addRandomSuffix: false,
     allowOverwrite: true,
   });
 }
 
-// Helper: hitung usia dari tanggal lahir
 function hitungUsia(tglLahir) {
   const today = new Date();
   const lahir = new Date(tglLahir);
@@ -35,7 +33,7 @@ function hitungUsia(tglLahir) {
   return usia;
 }
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
 
   // ======= GET =======
   if (req.method === "GET") {
@@ -47,14 +45,12 @@ export default async function handler(req, res) {
         const found = users.filter(u =>
           u.nama.toLowerCase().includes(qn.toLowerCase())
         );
-
         if (found.length === 0) {
           return res.status(404).json({
             status: "error",
             message: `User '${qn}' tidak ditemukan`
           });
         }
-
         const result = found.map(u => ({ ...u, usia: hitungUsia(u.tgl_lahir) }));
         return res.json({ status: "ok", total: result.length, users: result });
       }
@@ -72,11 +68,7 @@ export default async function handler(req, res) {
   if (req.method === "POST") {
     try {
       let body = req.body;
-
-      // Handle kalau body masih string
-      if (typeof body === "string") {
-        body = JSON.parse(body);
-      }
+      if (typeof body === "string") body = JSON.parse(body);
 
       const { nama, tgl_lahir, gender, notes } = body;
 
@@ -94,7 +86,6 @@ export default async function handler(req, res) {
         });
       }
 
-      // Validasi format tanggal
       const dateCheck = new Date(tgl_lahir);
       if (isNaN(dateCheck.getTime())) {
         return res.status(400).json({
@@ -134,4 +125,33 @@ export default async function handler(req, res) {
 
     } catch (e) {
       console.error("POST error:", e);
-      return res.status(500).json({ status: "error", message: "Gagal daftarkan
+      return res.status(500).json({ status: "error", message: "Gagal daftarkan user" });
+    }
+  }
+
+  // ======= DELETE =======
+  if (req.method === "DELETE") {
+    try {
+      const { id } = req.query;
+      if (!id) {
+        return res.status(400).json({ status: "error", message: "Parameter 'id' wajib diisi" });
+      }
+
+      const users = await getData();
+      const filtered = users.filter(u => u.id != id);
+
+      if (filtered.length === users.length) {
+        return res.status(404).json({ status: "error", message: "User tidak ditemukan" });
+      }
+
+      await saveData(filtered);
+      return res.json({ status: "ok", message: "User berhasil dihapus" });
+
+    } catch (e) {
+      console.error("DELETE error:", e);
+      return res.status(500).json({ status: "error", message: "Gagal hapus user" });
+    }
+  }
+
+  return res.status(405).json({ status: "error", message: "Method not allowed" });
+}
