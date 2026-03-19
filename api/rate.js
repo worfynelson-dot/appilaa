@@ -8,7 +8,7 @@ export default function handler(req, res) {
     });
   }
 
-  const rating = Math.floor(Math.random() * (Number.MAX_SAFE_INTEGER));
+  const rating = Math.floor(Math.random() * 1000000);
 
   return res.json({
     status: "ok",
@@ -16,11 +16,3 @@ export default function handler(req, res) {
     rating: rating
   });
 }
-```
-
----
-
-## 🔗 Cara Pakai
-```
-/api/rate?qn=Budi
-/api/rate?qn=Ani
